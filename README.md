@@ -7,10 +7,8 @@ A water- (and otherwise-) based, motion-triggered cat deterrent driven by an
 **Arduino Nano 33 IoT**. A PIR sensor detects the cat entering an alcove → the
 microcontroller fires a short, harmless burst from a 12V diaphragm pump.
 
-The name plays on *no man's land*. And like the Maginot Line, this is a defense the cat
-will walk around — it'll just mark the next spot. **It's a half-measure.** The real fix
-(the territorial conflict between the tomcat and the new female cat) is described in
-[`CLAUDE.md`](./CLAUDE.md) and matters more than any of this electronics.
+The name plays on *no man's land* — and like the Maginot Line, it's a defense you can
+simply walk around.
 
 ## Hardware (summary — full BOM in `CLAUDE.md`)
 
@@ -58,4 +56,3 @@ cp test_wifi/arduino_secrets.example.h test_wifi/arduino_secrets.h
 
 - ✅ sensor wired, verified, roughly calibrated; reports over WiFi
 - ⏳ buy pump/MOSFET/diode/PSU; firmware phase 1 (PIR → Serial) → phase 2 (pulse + cooldown)
-- ⚠️ in parallel and more important: defuse the cat–cat conflict (see `CLAUDE.md`)

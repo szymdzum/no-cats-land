@@ -6,32 +6,10 @@ microcontroller fires a short burst from a 12V diaphragm pump.
 
 This document is the project context — read by Claude Code before it touches the firmware.
 
-## First, honestly: this is a half-measure
-
-The cat (a neutered tom) is **marking territory** — tail up, quivering, spray on a
-vertical surface. The cause is known: a new female cat joined the household and a
-territorial conflict is ongoing. This is a textbook marking trigger in neutered toms.
-
-From that follows the thing no hardware can get around: **area denial closes one spot,
-it does not remove the cause.** If we don't defuse the tension between the two cats, he'll
-mark the next point by a door/window. The hardware is a toy and a patch for one alcove,
-not a solution.
-
-The real solution (priority, regardless of the electronics):
-- 2x resources, spread out in space (litter boxes: number of cats + 1, separated)
-- vertical space, escape routes, so the cats can pass each other without a clash
-- possibly roll back the integration (separate rooms, scent swapping, gradually)
-- Feliway Friends/MultiCat (pheromone for cat–cat conflict, not the regular one)
-- enzymatic removal of old marks (never ammonia — smells like urine)
-- if it doesn't ease after weeks: a behaviourist / vet for pharmacological support
-
-The rest of this document is that half-measure — but done properly.
-
 ## Name
 
-`no-cats-land` (a play on "no man's land"). README carries a Maginot Line motto: a defense
-that got bypassed — because the cat will find the next spot. The name is baked into the
-project's irony.
+`no-cats-land` (a play on "no man's land"). README carries a Maginot Line motto — a
+defense that gets bypassed. The name is baked into the project's irony.
 
 ## Hardware goal
 
@@ -199,4 +177,3 @@ starts disarmed (Serial: 'a'/'d'), `MAX_SHOTS` (auto-disarm), pulse + cooldown,
 - [ ] firmware phase 1: read PIR on Serial
 - [ ] firmware phase 2: cooldown + pump pulse
 - [ ] final mounting
-- [ ] (in parallel, more important) defuse the cat–cat conflict
