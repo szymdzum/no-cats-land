@@ -1,200 +1,202 @@
 # no-cats-land
 
-Wodny (i nie tylko) odstraszacz dla kota na czujnik ruchu. Projekt ACME-grade,
-sterowany Arduino Nano 33 IoT. PIR wykrywa kota wchodzącego we wnękę, mikrokontroler
-odpala krótki strzał z pompki membranowej 12 V.
+A water- (and otherwise-) based, motion-triggered cat deterrent. ACME-grade project,
+driven by an Arduino Nano 33 IoT. A PIR detects the cat entering an alcove, the
+microcontroller fires a short burst from a 12V diaphragm pump.
 
-Dokument jest kontekstem projektu — czytany przez Claude Code zanim dotknie firmware'u.
+This document is the project context — read by Claude Code before it touches the firmware.
 
-## Najpierw uczciwie: to jest półśrodek
+## First, honestly: this is a half-measure
 
-Kot (kastrowany kocur) **znaczy terytorialnie** — ogon na sztorc, drganie, strzał na
-pionową powierzchnię. Przyczyna jest znana: do domu doszła nowa kotka i trwa konflikt
-o terytorium. To podręcznikowy wyzwalacz znaczenia u kastrowanych kocurów.
+The cat (a neutered tom) is **marking territory** — tail up, quivering, spray on a
+vertical surface. The cause is known: a new female cat joined the household and a
+territorial conflict is ongoing. This is a textbook marking trigger in neutered toms.
 
-Z tego wynika rzecz, której żaden sprzęt nie obejdzie: **area denial zamyka jedno
-miejsce, nie usuwa przyczyny.** Jeśli nie rozładujemy napięcia między kotem a kotką,
-on zaznaczy następny punkt przy drzwiach/oknie. Sprzęt to zabawka i domknięcie jednej
-wnęki, nie rozwiązanie.
+From that follows the thing no hardware can get around: **area denial closes one spot,
+it does not remove the cause.** If we don't defuse the tension between the two cats, he'll
+mark the next point by a door/window. The hardware is a toy and a patch for one alcove,
+not a solution.
 
-Rozwiązanie właściwe (priorytet, niezależnie od elektroniki):
-- zasoby x2, porozdzielane w przestrzeni (kuwety: liczba kotów + 1, osobno)
-- pionizacja przestrzeni, drogi ucieczki, żeby koty mogły się mijać bez starcia
-- ewentualnie cofnięcie integracji (osobne pokoje, wymiana zapachów, stopniowo)
-- Feliway Friends/MultiCat (feromon na konflikt między kotami, nie zwykły)
-- enzymatyczne kasowanie starych znaczeń (nigdy amoniak — pachnie jak mocz)
-- jeśli po tygodniach nie odpuszcza: behawiorysta / wet o wsparcie farmakologiczne
+The real solution (priority, regardless of the electronics):
+- 2x resources, spread out in space (litter boxes: number of cats + 1, separated)
+- vertical space, escape routes, so the cats can pass each other without a clash
+- possibly roll back the integration (separate rooms, scent swapping, gradually)
+- Feliway Friends/MultiCat (pheromone for cat–cat conflict, not the regular one)
+- enzymatic removal of old marks (never ammonia — smells like urine)
+- if it doesn't ease after weeks: a behaviourist / vet for pharmacological support
 
-Reszta dokumentu to ten półśrodek — ale zrobiony porządnie.
+The rest of this document is that half-measure — but done properly.
 
-## Nazwa
+## Name
 
-`no-cats-land` (gra z "no man's land"). W README motto o Linii Maginota: obrona,
-którą się obeszło — bo kot znajdzie następne miejsce. Nazwa wpisana w ironię projektu.
+`no-cats-land` (a play on "no man's land"). README carries a Maginot Line motto: a defense
+that got bypassed — because the cat will find the next spot. The name is baked into the
+project's irony.
 
-## Cel sprzętowy
+## Hardware goal
 
-Krótki, nieszkodliwy strzał wody (lub mgiełki) gdy PIR wykryje ruch we wnęce.
-Bez krzywdy, bez wirujących ostrzy, bez wody lecącej w zawilgoconą ścianę.
+A short, harmless squirt of water (or mist) when the PIR detects motion in the alcove.
+No harm, no spinning blades, no water hitting an already-damp wall.
 
 ## Hardware / BOM
 
-Co już jest:
-- Arduino Nano 33 IoT (with headers) — SAMD21 + NINA, **logika 3,3 V**
-- PIR HC-SR501 (HW-416A, układ BISS0001) — VCC 4,5–20 V, OUT 3,3 V TTL
-- mini breadboard + przewody dupont
+Already have:
+- Arduino Nano 33 IoT (with headers) — SAMD21 + NINA, **3.3V logic**
+- PIR HC-SR501 (HW-416A, BISS0001 chip) — VCC 4.5–20V, OUT 3.3V TTL
+- mini breadboard + dupont wires
 
-Do dokupienia:
-- pompka membranowa 12 V (mini, do "systemów wodnych") — krótkie pulsy, niskoprądowa
-- moduł MOSFET **D4184 / AOD4184** z optoizolacją (działa z 3,3 V — NIE IRF520)
-- dioda gaśnicza 1N5819 (Schottky) lub 1N4007
-- zasilacz 12 V 2 A z wtykiem DC 5,5/2,1 + gniazdo DC na śruby
-- wężyk silikonowy ~6 mm + zbiorniczek (może być butelka)
+To buy:
+- 12V diaphragm pump (mini, for "water systems") — short pulses, low current
+- **D4184 / AOD4184** MOSFET module with opto-isolation (works from 3.3V — NOT IRF520)
+- flyback diode 1N5819 (Schottky) or 1N4007
+- 12V 2A PSU with a 5.5/2.1 DC plug + screw-terminal DC jack
+- silicone tubing ~6mm + small reservoir (a bottle will do)
 
-Alternatywne wykonawcze (ten sam mózg, inny "strzał"):
-- wentylatorek/dmuchawa turbinowa 12 V (świst + podmuch, bez wody) — do wilgotnej wnęki bezpieczniejsze
-- atomizer/pistolet na wodę + serwo ściskające spust (wariant najbardziej Looney Tunes)
+Alternative actuators (same brain, different "shot"):
+- 12V turbine fan/blower (hiss + gust, no water) — safer for a damp alcove
+- atomizer/water gun + a servo squeezing the trigger (the most Looney Tunes variant)
 
-## Architektura zasilania
+## Power architecture
 
-Jedno napięcie: **12 V do wszystkiego.**
-- PIR VCC — łyka do 20 V, więc 12 V OK, OUT i tak daje 3,3 V (bezpieczne dla Nano)
-- Nano — przez VIN (zakres 4,5–21 V)
-- pompka — przez moduł MOSFET (przełączana)
+One voltage: **12V for everything.**
+- PIR VCC — takes up to 20V, so 12V is fine; OUT is still 3.3V (safe for the Nano)
+- Nano — via VIN (range 4.5–21V)
+- pump — via the MOSFET module (switched)
 
-**Masa wspólna** — minus zasilacza, GND Nano, GND PIR, GND modułu spięte w jeden punkt.
-To jest najczęstszy punkt, na którym ludzie się przewracają.
+**Common ground** — PSU minus, Nano GND, PIR GND, module GND tied to a single point.
+This is the most common spot where people trip up.
 
-## Schemat połączeń
+## Wiring diagram
 
 ```
 +12V ─────┬──────────┬─────────────┬──────────────┐
           │          │             │              │
-        PIR VCC    Nano VIN     MOSFET 12V+    (przez diodę) Pompka +
+        PIR VCC    Nano VIN     MOSFET 12V+   (via diode) Pump +
           │          │             │              │
-        PIR OUT ─► Nano D2         │           Pompka −
+        PIR OUT ─► Nano D2         │            Pump −
                    Nano D3 ─► MOSFET SIG ──► MOSFET OUT− ─┘
-                   Nano 3V3 ─► MOSFET VCC (strona sygnałowa)
+                   Nano 3V3 ─► MOSFET VCC (signal side)
           │          │             │              │
-GND ──────┴──────────┴─────────────┴──────────────┘  (masa wspólna)
+GND ──────┴──────────┴─────────────┴──────────────┘  (common ground)
 ```
 
-Dioda gaśnicza 1N5819 **równolegle do pompki**: katoda (pasek) do +12 V,
-anoda do strony przełączanej (OUT− z modułu). Pompka to obciążenie indukcyjne,
-bez diody przepięcie przy wyłączaniu uszkodzi MOSFET. Moduł D4184 nie ma jej na pokładzie.
+Flyback diode 1N5819 **in parallel with the pump**: cathode (stripe) to +12V, anode to the
+switched side (OUT− from the module). The pump is an inductive load; without the diode the
+turn-off spike will kill the MOSFET. The D4184 module does not have one onboard.
 
-Logika "Nano w środku" (a nie PIR wprost do MOSFET-a) daje cooldown i limit strzałów,
-żeby pompka nie waliła co sekundę na każdy ciepły obiekt (w tym na człowieka).
+Having the "Nano in the middle" (rather than PIR straight to the MOSFET) gives a cooldown
+and a shot limit, so the pump doesn't fire every second at every warm object (humans included).
 
-## Gotchas (zweryfikowane, nie zgadywane)
+## Gotchas (verified, not guessed)
 
 **Nano 33 IoT:**
-- I/O jest **3,3 V i NIE 5 V tolerant** — 5 V na pin GPIO uszkadza płytkę.
-  OUT z PIR-a to 3,3 V, więc wpina się wprost, bez konwertera. Akurat pasuje.
-- Pin "5V" **domyślnie martwy** (0 V) — ożywa dopiero po zlutowaniu zworki VUSB
-  i zasilaniu przez USB. Dlatego cały układ jedzie na 12 V przez VIN, nie na pinie 5V.
+- I/O is **3.3V and NOT 5V tolerant** — 5V on a GPIO damages the board.
+  The PIR OUT is 3.3V, so it wires straight in, no level shifter. Convenient fit.
+- The "5V" pin is **dead by default** (0V) — it only comes alive after soldering the VUSB
+  jumper and powering via USB. So the whole rig runs on 12V via VIN, not the 5V pin.
 
 **HC-SR501:**
-- kolejność pinów VCC/OUT/GND **nie jest znormalizowana** między rewizjami.
-  Środkowy pin = OUT (pewne). Skrajne (VCC/GND) trzeba potwierdzić — zamiana smaży moduł.
-  Weryfikacja na tym egzemplarzu: GND = skrajny pin, którego ścieżka biegnie do minusowej
-  (paskowanej) nogi kondensatora elektrolitycznego.
-- zworka H/L: H = retrigger, L = pojedynczy impuls. Do area denial docelowo **L**.
-- rozgrzewka ~60 s po zasilaniu, zanim odczyty są wiarygodne.
+- pin order VCC/OUT/GND is **not standardized** across revisions.
+  Middle pin = OUT (certain). The outer pins (VCC/GND) must be confirmed — swapping fries
+  the module. Verified on this unit: GND = the outer pin whose trace runs to the negative
+  (striped) leg of the electrolytic capacitor.
+- H/L jumper: H = retrigger, L = single pulse. For area denial, ultimately **L**.
+- ~60s warm-up after power-on before readings are trustworthy.
 
 **MOSFET D4184/AOD4184:**
-- ma optoizolację (PC817) — dlatego steruje nim 3,3 V z Nano.
-- strona sygnałowa (SIG/VCC/GND) + strona mocy (12V+ i przełączane wyjście).
-  Nazwy padów bywają różne (PWM/+/− zamiast SIG/VCC/GND) — sprawdzić nadruk egzemplarza.
+- has opto-isolation (PC817) — that's why 3.3V from the Nano can drive it.
+- signal side (SIG/VCC/GND) + power side (12V+ and switched output).
+  Pad names vary (PWM/+/− instead of SIG/VCC/GND) — check the silkscreen on the unit.
 
-**Pompka membranowa:**
-- nie odpalać na sucho na długo (membrana nie lubi). Krótkie pulsy z wodą OK.
-- niektóre mini-pompki słabo zasysają — zbiornik wyżej / zalany wlot.
+**Diaphragm pump:**
+- don't run it dry for long (the membrane dislikes it). Short pulses with water are OK.
+- some mini pumps prime poorly — reservoir higher / flooded inlet.
 
-### Zweryfikowane w tej sesji (2026-06-13) — ważne dla fazy 1
+### Verified in this session (2026-06-13) — important for phase 1
 
-- **`arduino-cli monitor` NIE działa na tej płytce** — zwraca 0 bajtów (native-USB
-  reset-on-open). Test plan poniżej zakłada odczyt PIR „na Serial" — żeby ten Serial
-  faktycznie przeczytać, użyj: `stty -f /dev/cu.usbmodemXXXX 9600 raw -echo` a potem
-  `cat /dev/cu.usbmodemXXXX` (w tle, sleep, kill). Alternatywnie raportuj stan przez
-  WiFi (HTTP) — to działało bezbłędnie (patrz `test_wifi/`).
-- **Czytaj D2 jako `INPUT_PULLDOWN`** — luźny styk na OUT „pływa" i daje fałszywe HIGH;
-  pulldown ściąga go do 0, gdy PIR milczy. (Luźny dupont to był pierwszy realny bug.)
-- **Potencjometry PIR na tym egzemplarzu:** lewa = czułość/zasięg, prawa = czas trzymania.
-  Obie w lewo = minimum; czułość ~1/4 w prawo łapie ruch z 1–2 m.
-- **WiFi:** biblioteka `WiFiNINA`, moduł tylko **2,4 GHz**. `WiFi.config()` (statyczny IP)
-  bywał kapryśny — DHCP działa. SSID jest **case-sensitive** (literówka = „nie widzę sieci").
+- **`arduino-cli monitor` does NOT work on this board** — returns 0 bytes (native-USB
+  reset-on-open). The test plan below reads the PIR "on Serial" — to actually read that
+  Serial, use: `stty -f /dev/cu.usbmodemXXXX 9600 raw -echo` then
+  `cat /dev/cu.usbmodemXXXX` (background, sleep, kill). Alternatively report state over
+  WiFi (HTTP) — that worked flawlessly (see `test_wifi/`).
+- **Read D2 as `INPUT_PULLDOWN`** — a loose OUT wire "floats" and gives false HIGHs; the
+  pulldown ties it to 0 when the PIR is quiet. (A loose dupont was the first real bug.)
+- **PIR pots on this unit:** left = sensitivity/range, right = hold time. Both fully left =
+  minimum; sensitivity ~1/4 right catches motion at 1–2 m.
+- **WiFi:** library `WiFiNINA`, module is **2.4 GHz only**. `WiFi.config()` (static IP) was
+  flaky — DHCP works. SSID is **case-sensitive** (a typo = "network not found").
 
-## Plan firmware (Nano 33 IoT, Arduino)
+## Firmware plan (Nano 33 IoT, Arduino)
 
-Stan minimalny, bez bibliotek:
-- `PIR_PIN = D2` (INPUT) — czyta OUT z PIR
-- `PUMP_PIN = D3` (OUTPUT) — steruje SIG modułu MOSFET
-- rozgrzewka PIR ~60 s w `setup()` zanim wejdziemy w pętlę
-- detekcja zbocza HIGH na D2
-- po wyzwoleniu: krótki puls na D3 (np. 300–800 ms), potem **cooldown** (np. 10–30 s),
-  żeby nie waliło seriami i nie zalało wnęki
-- opcjonalny licznik strzałów / log na Serial w trybie debug
-- (faza 2, bo to Nano 33 IoT) WiFi/BLE: zdalny log zdarzeń, zmiana parametrów
+Minimal state, no libraries:
+- `PIR_PIN = D2` (INPUT) — reads PIR OUT
+- `PUMP_PIN = D3` (OUTPUT) — drives the MOSFET module SIG
+- ~60s PIR warm-up in `setup()` before entering the loop
+- HIGH-edge detection on D2
+- on trigger: a short pulse on D3 (e.g. 300–800 ms), then a **cooldown** (e.g. 10–30 s),
+  so it doesn't fire in bursts and flood the alcove
+- optional shot counter / Serial log in debug mode
+- (phase 2, since this is a Nano 33 IoT) WiFi/BLE: remote event log, parameter changes
 
-Parametry do strojenia w polu: czas pulsu, długość cooldownu, czułość PIR (potencjometr),
-ustawienie zworki H/L (do logiki z cooldownem wygodniejsze L).
+Field-tunable parameters: pulse length, cooldown length, PIR sensitivity (pot),
+H/L jumper setting (L is more convenient for the cooldown logic).
 
-## Plan testów (kolejność, od najmniej rzeczy które mogą pójść źle)
+## Test plan (ordered, fewest things that can go wrong first)
 
-1. **Sam PIR, bez 12 V i bez pompki.** Zasilanie PIR z 5 V (USB) lub na szybko 3,3 V z Nano
-   (poniżej spec, zasięg mniejszy, ale do "czy żyje" wystarczy). OUT → D2.
-   Szkic czyta D2 i pisze na Serial "RUCH/brak". Odczekać rozgrzewkę, pomachać ręką.
-2. Gdy PIR reaguje — dołożyć moduł MOSFET i pompkę na **osobnym 12 V**, masa wspólna,
-   dioda gaśnicza na miejscu. Test pulsu na sucho najpierw bez wody, krótko.
-3. Woda, zbiornik, wężyk. Stroić czas pulsu i cooldown.
-4. Dopiero potem montaż w docelowym miejscu.
+1. **PIR only, no 12V and no pump.** Power the PIR from 5V (USB) or, quick and dirty, 3.3V
+   from the Nano (below spec, shorter range, but enough for "is it alive"). OUT → D2.
+   The sketch reads D2 and prints "MOTION/none" on Serial. Wait out the warm-up, wave a hand.
+2. Once the PIR reacts — add the MOSFET module and pump on a **separate 12V**, common ground,
+   flyback diode in place. Test the pulse dry first (no water), briefly.
+3. Water, reservoir, tubing. Tune pulse length and cooldown.
+4. Only then mount it in the final spot.
 
-## Safety / nie zrób sobie krzywdy
+## Safety / don't hurt yourself
 
-- **Woda nie leci w zawilgoconą wnękę.** Tam już jest zaciek i ryzyko pleśni.
-  Celować od ściany, albo użyć wariantu dmuchawy/sprężonego powietrza zamiast wody.
-- Najpierw enzymatycznie skasować stary mocz, inaczej zamkniemy zapach w środku.
-- Zostawić wentylację, jeśli wnęka kryje rury — szczelne zamknięcie sprzyja wilgoci.
-- Pompka nie chodzi na sucho. MOSFET zawsze z diodą gaśniczą.
-- 12 V nie podawać, dopóki VCC/GND PIR-a nie są potwierdzone.
+- **Water does not go into a damp alcove.** There's already a leak stain and mold risk there.
+  Aim away from the wall, or use the blower/compressed-air variant instead of water.
+- First remove old urine enzymatically, otherwise we seal the smell inside.
+- Leave ventilation if the alcove hides pipes — sealing it tight encourages moisture.
+- The pump does not run dry. The MOSFET always has a flyback diode.
+- Don't apply 12V until the PIR's VCC/GND are confirmed.
 
 ## Notes for the coding agent
 
 - Target: Arduino Nano 33 IoT (SAMD21). Arduino core: `arduino:samd`.
-- Trzymaj logikę w jednym `.ino` na start, bez bibliotek zewnętrznych do fazy 1.
-- Pinout w jednym miejscu jako `#define`, łatwe do zmiany.
-- Wszystkie czasy (puls, cooldown, warm-up) jako stałe na górze pliku.
-- Nie zakładaj 5 V na żadnym pinie Nano. OUT z PIR to 3,3 V i to jest cała prawda.
-- Faza 1 ma działać na Serial Monitor zanim cokolwiek przełącza pompkę.
-- Sketche: `no_cats_land/` (główny firmware), `test_pir/`, `test_wifi/`, `blink/`.
-  Każdy `.ino` w osobnym folderze o tej samej nazwie (wymóg Arduino).
+- Keep the logic in a single `.ino` to start, no external libraries through phase 1.
+- Pinout in one place as `#define`s, easy to change.
+- All timings (pulse, cooldown, warm-up) as constants at the top of the file.
+- Do not assume 5V on any Nano pin. PIR OUT is 3.3V and that's the whole truth.
+- Phase 1 must work on the Serial Monitor before anything switches the pump.
+- Sketches: `no_cats_land/` (main firmware), `test_pir/`, `test_wifi/`, `blink/`.
+  Each `.ino` in its own same-named folder (Arduino requirement).
 - Build/upload: `arduino-cli compile --fqbn arduino:samd:nano_33_iot ./<folder>`
-  oraz `arduino-cli upload -p <port> --fqbn arduino:samd:nano_33_iot ./<folder>`.
+  and `arduino-cli upload -p <port> --fqbn arduino:samd:nano_33_iot ./<folder>`.
+- Language: chat may be in Polish, but code, comments, docs and commit messages are English.
 
-## Prior art / inspiracje
+## Prior art / inspiration
 
-Podobne projekty na GitHubie (sprawdzone) — wszystkie na ultradźwiękach, na ESP, nikt
-dokładnie w combo Nano 33 IoT + pompka wodna + WiFi:
-- `asafdabush/POOPCAT` — ESP8266 + ultradźwięki + Blynk. Najbliższy architekturą:
-  maszyna stanów LISTEN/ACTIVE/COOLDOWN, `secrets_template.h` + gitignore. Z niego wzięte:
-  **debounce ruchu (`MOTION_HOLD_MS`), start ROZBROJONY + ręczne uzbrajanie, log tylko przy zmianie.**
-- `LieBtrau/cat-repeller` — PIR + ultradźwięki + Web Bluetooth, ESP32-C3, deep-sleep (na baterię).
+Similar GitHub projects (checked) — all ultrasonic, all on ESP, nobody in the exact combo
+Nano 33 IoT + water pump + WiFi:
+- `asafdabush/POOPCAT` — ESP8266 + ultrasound + Blynk. Closest in architecture:
+  LISTEN/ACTIVE/COOLDOWN state machine, `secrets_template.h` + gitignore. Borrowed from it:
+  **motion debounce (`MOTION_HOLD_MS`), starts DISARMED + manual arming, log-on-change-only.**
+- `LieBtrau/cat-repeller` — PIR + ultrasound + Web Bluetooth, ESP32-C3, deep-sleep (battery).
 
-Czego NIE kopiować: ich straszak chodzi ~12 s — dla pompki wodnej to zalanie (u nas puls
-~0,5 s). Brak rozgrzewki PIR u nich (mają radar) — my HC-SR501, więc warm-up zostaje.
+What NOT to copy: their deterrent runs ~12s — for a water pump that's a flood (ours pulses
+~0.5s). No PIR warm-up in theirs (they use radar) — we use HC-SR501, so the warm-up stays.
 
-Te wzorce są już w `no_cats_land/no_cats_land.ino` (faza 2 draft): `MOTION_HOLD_MS`,
-start rozbrojony (Serial: 'a'/'d'), `MAX_SHOTS` (auto-rozbrojenie), puls + cooldown,
-`INPUT_PULLDOWN` na D2.
+These patterns are already in `no_cats_land/no_cats_land.ino` (phase 2 draft): `MOTION_HOLD_MS`,
+starts disarmed (Serial: 'a'/'d'), `MAX_SHOTS` (auto-disarm), pulse + cooldown,
+`INPUT_PULLDOWN` on D2.
 
 ## Status
 
-- [x] identyfikacja PIR (HC-SR501 / BISS0001), pinout zweryfikowany ścieżką
-- [x] architektura zasilania (jedno 12 V, masa wspólna)
-- [x] schemat połączeń PIR + Nano + MOSFET + pompka + dioda
-- [ ] dokupić: pompka, moduł D4184, dioda, zasilacz 12 V, wężyk
-- [ ] firmware faza 1: odczyt PIR na Serial
-- [ ] firmware faza 2: cooldown + puls pompki
-- [ ] montaż docelowy
-- [ ] (równolegle, ważniejsze) rozładować konflikt kot–kotka
+- [x] PIR identification (HC-SR501 / BISS0001), pinout verified by trace
+- [x] power architecture (single 12V, common ground)
+- [x] wiring diagram PIR + Nano + MOSFET + pump + diode
+- [ ] buy: pump, D4184 module, diode, 12V PSU, tubing
+- [ ] firmware phase 1: read PIR on Serial
+- [ ] firmware phase 2: cooldown + pump pulse
+- [ ] final mounting
+- [ ] (in parallel, more important) defuse the cat–cat conflict

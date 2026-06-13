@@ -1,7 +1,7 @@
-// test_wifi — Nano laczy sie z WiFi (adres z routera) i wystawia stan czujnika.
-//   Wejdz na http://<IP_plytki>/  -> "RUCH" albo "spokoj"
-//   Dioda: miga podczas laczenia, potem pokazuje stan czujnika (swieci = ruch).
-//   IP wypisywane jest na serial.
+// test_wifi — Nano joins WiFi (DHCP address) and serves the sensor state.
+//   Open http://<board-ip>/  -> "MOTION" or "idle"
+//   LED: blinks while connecting, then shows the sensor state (on = motion).
+//   The IP is printed over serial.
 
 #include <WiFiNINA.h>
 #include "arduino_secrets.h"
@@ -30,13 +30,13 @@ void loop() {
 
   WiFiClient client = server.available();
   if (client) {
-    client.readStringUntil('\n');
-    while (client.available()) client.read();
+    client.readStringUntil('\n');         // request line
+    while (client.available()) client.read();  // ignore the rest
     client.println("HTTP/1.1 200 OK");
     client.println("Content-Type: text/plain");
     client.println("Connection: close");
     client.println();
-    client.println(motion == HIGH ? "RUCH" : "spokoj");
+    client.println(motion == HIGH ? "MOTION" : "idle");
     client.print("raw=");
     client.println(motion);
     delay(2);

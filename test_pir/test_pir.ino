@@ -1,7 +1,7 @@
-// test_pir — pokaz ruchu: dioda odbija to, co widzi czujnik.
-//   RUCH wykryty  -> dioda SWIECI
-//   spokoj        -> dioda ZGASZONA
-// PULLDOWN trzyma pin na 0, gdy czujnik milczy (zeby nie "plywal").
+// test_pir — motion preview: the LED mirrors what the sensor sees.
+//   motion detected -> LED ON
+//   idle            -> LED OFF
+// PULLDOWN holds the pin at 0 when the sensor is quiet (so it doesn't "float").
 
 const int PIR_PIN = 2;
 const int LED = LED_BUILTIN;
@@ -13,8 +13,8 @@ void setup() {
 
 void loop() {
   if (digitalRead(PIR_PIN) == HIGH) {
-    digitalWrite(LED, HIGH);   // ruch!
+    digitalWrite(LED, HIGH);   // motion!
   } else {
-    digitalWrite(LED, LOW);    // spokoj
+    digitalWrite(LED, LOW);    // idle
   }
 }

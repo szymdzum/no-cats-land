@@ -1,6 +1,6 @@
-// WZOR pliku z danymi do WiFi.
-// 1. Skopiuj ten plik jako "arduino_secrets.h" (w tym samym folderze).
-// 2. Wpisz nazwe swojej sieci i haslo.
-// Prawdziwy arduino_secrets.h jest w .gitignore i NIE trafia do repo.
-#define SECRET_SSID "TWOJA_SIEC_WIFI"
-#define SECRET_PASS "TWOJE_HASLO"
+// WiFi credentials TEMPLATE.
+// 1. Copy this file as "arduino_secrets.h" (in the same folder).
+// 2. Fill in your network name and password.
+// The real arduino_secrets.h is in .gitignore and is NOT committed.
+#define SECRET_SSID "YOUR_WIFI_SSID"
+#define SECRET_PASS "YOUR_WIFI_PASSWORD"

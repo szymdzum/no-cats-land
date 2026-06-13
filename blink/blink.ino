@@ -1,6 +1,6 @@
-// Test setup Arduino Nano 33 IoT
-// Miganie wbudowanej diody L (pin LED_BUILTIN) w rytmie 200ms ON / 800ms OFF
-// Inny rytm niz fabryczny Blink = od razu widac, ze nowy szkic sie wgral.
+// Setup smoke-test for Arduino Nano 33 IoT.
+// Blinks the built-in L LED (LED_BUILTIN) at 200ms ON / 800ms OFF.
+// A rhythm different from the factory Blink = instant proof the new sketch uploaded.
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
