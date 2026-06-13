@@ -172,6 +172,22 @@ ustawienie zworki H/L (do logiki z cooldownem wygodniejsze L).
 - Build/upload: `arduino-cli compile --fqbn arduino:samd:nano_33_iot ./<folder>`
   oraz `arduino-cli upload -p <port> --fqbn arduino:samd:nano_33_iot ./<folder>`.
 
+## Prior art / inspiracje
+
+Podobne projekty na GitHubie (sprawdzone) — wszystkie na ultradźwiękach, na ESP, nikt
+dokładnie w combo Nano 33 IoT + pompka wodna + WiFi:
+- `asafdabush/POOPCAT` — ESP8266 + ultradźwięki + Blynk. Najbliższy architekturą:
+  maszyna stanów LISTEN/ACTIVE/COOLDOWN, `secrets_template.h` + gitignore. Z niego wzięte:
+  **debounce ruchu (`MOTION_HOLD_MS`), start ROZBROJONY + ręczne uzbrajanie, log tylko przy zmianie.**
+- `LieBtrau/cat-repeller` — PIR + ultradźwięki + Web Bluetooth, ESP32-C3, deep-sleep (na baterię).
+
+Czego NIE kopiować: ich straszak chodzi ~12 s — dla pompki wodnej to zalanie (u nas puls
+~0,5 s). Brak rozgrzewki PIR u nich (mają radar) — my HC-SR501, więc warm-up zostaje.
+
+Te wzorce są już w `no_cats_land/no_cats_land.ino` (faza 2 draft): `MOTION_HOLD_MS`,
+start rozbrojony (Serial: 'a'/'d'), `MAX_SHOTS` (auto-rozbrojenie), puls + cooldown,
+`INPUT_PULLDOWN` na D2.
+
 ## Status
 
 - [x] identyfikacja PIR (HC-SR501 / BISS0001), pinout zweryfikowany ścieżką
