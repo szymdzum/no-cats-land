@@ -1,21 +1,29 @@
-# antysik 🐱🚫
+# no-cats-land 🐱🚱
 
-Odstraszacz kota na **Arduino Nano 33 IoT** — projekt do nauki IoT.
+> *„Najlepiej ufortyfikowana linia obrony jest bezużyteczna, jeśli wróg po prostu ją obejdzie."*
+> — duch Linii Maginota, patron tego projektu
 
-Czujnik ruchu (PIR) wykrywa kota wchodzącego do pomieszczenia, a płytka
-uruchamia „straszak" (dmuchawa / silniczek), żeby grzecznie przegonić kota.
+Wodny (i nie tylko) odstraszacz kota na czujnik ruchu, sterowany **Arduino Nano 33 IoT**.
+PIR wykrywa kota wchodzącego we wnękę → mikrokontroler odpala krótki, nieszkodliwy strzał
+z pompki membranowej 12 V.
 
-## Sprzęt
+Nazwa to gra z *no man's land*. I jak Linia Maginota — to obrona, którą kot obejdzie,
+bo zaznaczy następne miejsce. **To półśrodek.** Prawdziwe rozwiązanie (konflikt
+terytorialny kot–kotka) opisane jest w [`CLAUDE.md`](./CLAUDE.md) i jest ważniejsze niż
+cała ta elektronika.
 
-- **Arduino Nano 33 IoT** (SAMD21 + WiFi NINA)
-- **Czujnik ruchu PIR HC-SR501** — `OUT → D2`, `VCC → 3V3` (test) / 5V (docelowo), `GND → GND`
-- (Etap 2) **MOSFET logic-level** (np. IRLZ44N / AO3400) sterujący silniczkiem/dmuchawą + osobne zasilanie
+## Sprzęt (skrót — pełny BOM w `CLAUDE.md`)
+
+- Arduino Nano 33 IoT (SAMD21 + WiFi NINA, **logika 3,3 V**)
+- PIR HC-SR501 — `OUT → D2`
+- (do dokupienia) pompka membranowa 12 V + moduł MOSFET **D4184** (optoizolacja, działa z 3,3 V)
+  + dioda gaśnicza 1N5819 + zasilacz 12 V. Wszystko na **jednym 12 V, masa wspólna**.
 
 ## Struktura
 
 | Folder | Co to |
 |---|---|
-| `antysik/` | 🎯 właściwy projekt — straszak |
+| `no_cats_land/` | 🎯 główny firmware (straszak) |
 | `test_pir/` | 🔬 test i diagnostyka czujnika ruchu |
 | `test_wifi/` | 📶 test WiFi — wystawia stan czujnika na `http://<ip-płytki>/` |
 | `blink/` | 💡 pierwszy test migania diodą |
@@ -25,17 +33,14 @@ uruchamia „straszak" (dmuchawa / silniczek), żeby grzecznie przegonić kota.
 ## Budowanie i wgrywanie
 
 ```bash
-# kompilacja
-arduino-cli compile --fqbn arduino:samd:nano_33_iot ./test_wifi
-
-# wgranie (sprawdź port: arduino-cli board list)
-arduino-cli upload -p /dev/cu.usbmodem1201 --fqbn arduino:samd:nano_33_iot ./test_wifi
+# kompilacja (sprawdź port: arduino-cli board list)
+arduino-cli compile --fqbn arduino:samd:nano_33_iot ./no_cats_land
+arduino-cli upload -p /dev/cu.usbmodem1201 --fqbn arduino:samd:nano_33_iot ./no_cats_land
 ```
 
 ## WiFi — dane logowania
 
-Plik `test_wifi/arduino_secrets.h` **nie jest w repo** (zawiera hasło).
-Aby zbudować program WiFi:
+`test_wifi/arduino_secrets.h` **nie jest w repo** (zawiera hasło). Aby zbudować WiFi:
 
 ```bash
 cp test_wifi/arduino_secrets.example.h test_wifi/arduino_secrets.h
@@ -50,5 +55,6 @@ cp test_wifi/arduino_secrets.example.h test_wifi/arduino_secrets.h
 
 ## Status
 
-- ✅ Etap 1: czujnik podłączony, zweryfikowany, wstępnie skalibrowany; raportuje przez WiFi.
-- ⏳ Do zrobienia: dokończyć kalibrację, Etap 2 (silniczek/dmuchawa przez MOSFET).
+- ✅ czujnik podłączony, zweryfikowany, wstępnie skalibrowany; raportuje przez WiFi
+- ⏳ dokupić pompkę/MOSFET/diodę/zasilacz; firmware faza 1 (PIR na Serial) → faza 2 (puls + cooldown)
+- ⚠️ równolegle i ważniejsze: rozładować konflikt kot–kotka (patrz `CLAUDE.md`)

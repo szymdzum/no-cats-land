@@ -1,6 +1,7 @@
-// antysik — odstraszacz kota na Arduino Nano 33 IoT
-// Czujnik ruchu PIR (HC-SR501) wykrywa kota -> wlacza dmuchawe/silnik przez MOSFET.
+// no-cats-land — odstraszacz kota na Arduino Nano 33 IoT
+// Czujnik ruchu PIR (HC-SR501) wykrywa kota -> krotki puls przez MOSFET (pompka/dmuchawa).
 // FQBN: arduino:samd:nano_33_iot
+// UWAGA: to szkic z fazy 2 (puls + cooldown). Patrz CLAUDE.md — faza 1 to sam PIR na Serial.
 //
 // UWAGA: Nano 33 IoT to plytka 3.3V — piny NIE sa 5V-tolerant.
 // HC-SR501 wystawia na OUT logike 3.3V, wiec mozna go czytac bezpiecznie.
