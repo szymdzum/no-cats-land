@@ -1,0 +1,11 @@
+# Sekrety — NIGDY nie commitujemy danych do WiFi
+**/arduino_secrets.h
+
+# Artefakty kompilacji Arduino
+build/
+*.hex
+*.bin
+*.elf
+
+# macOS
+.DS_Store
