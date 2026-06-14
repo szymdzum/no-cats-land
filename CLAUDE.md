@@ -169,6 +169,8 @@ Safety/robustness patterns already in `no_cats_land/no_cats_land.ino` (phase 2 d
 - [x] power architecture (single 12V, common ground)
 - [x] wiring diagram PIR + Nano + MOSFET + pump + diode
 - [ ] buy: pump, D4184 module, diode, 12V PSU, tubing
-- [ ] firmware phase 1: read PIR on Serial
-- [ ] firmware phase 2: cooldown + pump pulse
+- [x] firmware: local state machine (warm-up → idle → pulse → cooldown), MAX_SHOTS
+- [x] WiFi + REST control (`/arm`, `/disarm`, `/status`); Home Assistant config in `docs/home-assistant.yaml`
+- [ ] buy + wire the pump (MOSFET, diode, 12V PSU), test the pulse dry then with water
+- [ ] DHCP reservation for the board so HA always finds it
 - [ ] final mounting

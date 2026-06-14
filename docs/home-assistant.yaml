@@ -1,0 +1,63 @@
+# no-cats-land — Home Assistant integration (REST, no broker needed)
+#
+# Paste these blocks into your Home Assistant configuration.yaml (or split files),
+# then reload / restart HA. Adjust the IP to match your board.
+#
+# IMPORTANT: give the board a FIXED address (DHCP reservation on the router for the
+# Nano's MAC), otherwise HA may lose it when the lease changes.
+
+# --- Arm / disarm commands -------------------------------------------------
+rest_command:
+  nocatsland_arm:
+    url: "http://192.168.1.23/arm"
+    method: GET
+    timeout: 5
+  nocatsland_disarm:
+    url: "http://192.168.1.23/disarm"
+    method: GET
+    timeout: 5
+
+# --- Poll the board status -------------------------------------------------
+rest:
+  - resource: "http://192.168.1.23/status"
+    scan_interval: 5
+    timeout: 5
+    sensor:
+      - name: "no-cats-land state"
+        value_template: "{{ value_json.state }}"
+      - name: "no-cats-land shots"
+        value_template: "{{ value_json.shots }}"
+    binary_sensor:
+      - name: "no-cats-land motion"
+        device_class: motion
+        value_template: "{{ value_json.motion == 1 }}"
+      - name: "no-cats-land armed"
+        value_template: "{{ value_json.armed }}"
+
+# --- A switch that arms/disarms and reflects the real state ----------------
+switch:
+  - platform: template
+    switches:
+      no_cats_land:
+        friendly_name: "no-cats-land armed"
+        value_template: "{{ is_state('binary_sensor.no_cats_land_armed', 'on') }}"
+        turn_on:
+          action: rest_command.nocatsland_arm
+        turn_off:
+          action: rest_command.nocatsland_disarm
+
+# --- Optional: notify when the cat is detected -----------------------------
+# automation:
+#   - alias: "no-cats-land: cat detected"
+#     trigger:
+#       - platform: state
+#         entity_id: binary_sensor.no_cats_land_motion
+#         to: "on"
+#     condition:
+#       - condition: state
+#         entity_id: switch.no_cats_land
+#         state: "on"
+#     action:
+#       - service: notify.notify
+#         data:
+#           message: "no-cats-land: motion detected 🐱"

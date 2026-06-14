@@ -21,7 +21,7 @@ simply walk around.
 
 | Folder | What |
 |---|---|
-| `no_cats_land/` | 🎯 main firmware (the deterrent) |
+| `no_cats_land/` | 🎯 main firmware — local detection + pump pulse, armable from Home Assistant over WiFi (REST) |
 | `test_pir/` | 🔬 motion-sensor test & diagnostics |
 | `test_wifi/` | 📶 WiFi test — serves the sensor state at `http://<board-ip>/` |
 | `blink/` | 💡 first LED blink smoke-test |
@@ -38,13 +38,29 @@ arduino-cli upload -p /dev/cu.usbmodem1201 --fqbn arduino:samd:nano_33_iot ./no_
 
 ## WiFi credentials
 
-`test_wifi/arduino_secrets.h` is **not in the repo** (it holds the password). To build the
-WiFi sketch:
+`arduino_secrets.h` is **not in the repo** (it holds the password). Both WiFi sketches need
+their own copy:
 
 ```bash
-cp test_wifi/arduino_secrets.example.h test_wifi/arduino_secrets.h
-# then fill in your SSID + password
+cp no_cats_land/arduino_secrets.example.h no_cats_land/arduino_secrets.h
+cp test_wifi/arduino_secrets.example.h    test_wifi/arduino_secrets.h
+# then fill in your SSID + password in each
 ```
+
+## Home Assistant control (REST)
+
+The main firmware runs detection and the pump **locally** (works even if WiFi/HA is down).
+Home Assistant only arms/disarms and monitors, via HTTP:
+
+| Endpoint | Action |
+|---|---|
+| `GET /status` | JSON `{"armed":bool,"state":"...","motion":0\|1,"shots":n}` |
+| `GET /arm`    | arm, returns status |
+| `GET /disarm` | disarm, returns status |
+
+The board starts **disarmed**. Give it a fixed address (DHCP reservation on the router),
+then wire it into HA with a `rest_command` (arm/disarm), a `rest` sensor (poll `/status`)
+and a template `switch`. See `docs/home-assistant.yaml` for a ready-to-paste config.
 
 ## PIR calibration
 
@@ -55,4 +71,5 @@ cp test_wifi/arduino_secrets.example.h test_wifi/arduino_secrets.h
 ## Status
 
 - ✅ sensor wired, verified, roughly calibrated; reports over WiFi
-- ⏳ buy pump/MOSFET/diode/PSU; firmware phase 1 (PIR → Serial) → phase 2 (pulse + cooldown)
+- ✅ firmware: local state machine (warm-up → idle → pulse → cooldown) + REST arm/disarm/status
+- ⏳ buy pump/MOSFET/diode/PSU; wire the pump; add to Home Assistant; final mounting
