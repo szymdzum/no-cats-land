@@ -1,21 +1,19 @@
-// no-cats-land — firmware (phase 2): local detection + 12V pump pulse, controllable
-// from Home Assistant over WiFi (REST). Detection and firing are LOCAL and keep working
-// even if WiFi/HA is down; HA only arms/disarms and monitors.
+// no-cats-land — firmware (phase 2): local detection + 12V pump pulse, full Home Assistant
+// integration over WiFi (REST). Detection, telemetry and firing are LOCAL and keep working
+// even if WiFi/HA is down; HA arms/disarms, monitors and tunes.
 // Arduino Nano 33 IoT (SAMD21). PIR OUT -> D2, MOSFET SIG -> D3.
 //
-// HTTP endpoints (one request per connection):
-//   GET /status  -> JSON {"armed":bool,"state":"...","motion":0|1,"shots":n}
-//   GET /arm     -> arm,    then returns status JSON
-//   GET /disarm  -> disarm, then returns status JSON
+// HTTP endpoints (one request per connection); all return the status JSON:
+//   GET /status                          -> telemetry (see sendStatus)
+//   GET /arm        GET /disarm          -> arm / disarm
+//   GET /test                            -> fire ONE manual test pulse (works even disarmed)
+//   GET /reset                           -> reset the telemetry counters
+//   GET /set?pulse=&cooldown=&hold=&warmup=  -> live-tune timings (ms), no reflash
 // Arming also works over Serial ('a' / 'd').
 //
-// Safety/robustness design choices:
-//  - starts DISARMED (pump never fires on power-up)
-//  - MOTION_HOLD_MS debounce (fire only after motion persists)
-//  - short PULSE_MS + COOLDOWN_MS (anti-flood)
-//  - MAX_SHOTS auto-disarm (runaway guard)
-//  - D2 read as INPUT_PULLDOWN (a loose OUT wire won't float)
-//  - ~60s PIR warm-up before trusting readings
+// Design choices: starts DISARMED; motion sensing + telemetry run even when disarmed
+// (so you can calibrate from HA) but the pump only fires when ARMED; MOTION_HOLD debounce;
+// short pulse + cooldown (anti-flood); MAX_SHOTS auto-disarm; INPUT_PULLDOWN on D2.
 
 #include <WiFiNINA.h>
 #include "arduino_secrets.h"
@@ -25,20 +23,25 @@ const int PIR_PIN  = 2;
 const int PUMP_PIN = 3;
 const int LED_PIN  = LED_BUILTIN;
 
-// ---- Timing / parameters (ms) ----
-const unsigned long WARMUP_MS      = 60000;
-const unsigned long MOTION_HOLD_MS = 600;
-const unsigned long PULSE_MS       = 500;
-const unsigned long COOLDOWN_MS    = 15000;
-const int           MAX_SHOTS      = 20;
-const unsigned long WIFI_RETRY_MS  = 30000;
+// ---- Tunable timings (ms) — changeable at runtime via /set ----
+unsigned long warmupMs     = 60000;
+unsigned long motionHoldMs = 600;
+unsigned long pulseMs      = 500;
+unsigned long cooldownMs   = 15000;
+
+// ---- Fixed safety cap ----
+const int MAX_SHOTS = 20;            // auto-disarm after this many shots per arming
+const unsigned long WIFI_RETRY_MS = 30000;
 
 // ---- State ----
 enum State { WARMUP, IDLE, ACTIVE, COOLDOWN };
 State state = WARMUP;
-bool  armed = false;                // starts DISARMED
+bool  armed = false;
 unsigned long bootTime = 0, stateSince = 0, motionStart = 0, lastWifiTry = 0;
-int   shots = 0;
+unsigned long lastMotionMs = 0, lastShotMs = 0, testPulseUntil = 0;
+bool  prevMotion = false;
+long  shotsTotal = 0, motionEvents = 0;
+int   shotsSinceArm = 0;
 
 WiFiServer server(80);
 bool serverUp = false;
@@ -60,8 +63,8 @@ void setArmed(bool a) {
   motionStart = 0;
   stateSince = millis();
   if (armed) {
-    shots = 0;
-    state = (millis() - bootTime < WARMUP_MS) ? WARMUP : IDLE;
+    shotsSinceArm = 0;
+    state = (millis() - bootTime < warmupMs) ? WARMUP : IDLE;
     Serial.println(">>> ARMED");
   } else {
     state = IDLE;
@@ -73,9 +76,9 @@ void fire() {
   digitalWrite(PUMP_PIN, HIGH);
   state = ACTIVE;
   stateSince = millis();
-  shots++;
-  Serial.print(">>> SHOT #");
-  Serial.println(shots);
+  lastShotMs = stateSince;
+  shotsTotal++; shotsSinceArm++;
+  Serial.print(">>> SHOT #"); Serial.println(shotsSinceArm);
 }
 
 void handleSerial() {
@@ -86,7 +89,6 @@ void handleSerial() {
   }
 }
 
-// Bounded WiFi connect — never spins forever, so detection always runs.
 void wifiConnect() {
   lastWifiTry = millis();
   WiFi.begin(SECRET_SSID, SECRET_PASS);
@@ -100,26 +102,72 @@ void wifiConnect() {
   }
 }
 
+// extract an integer query param, e.g. paramInt(req, "pulse=", pulseMs)
+long paramInt(const String& req, const char* key, long fallback) {
+  int i = req.indexOf(key);
+  if (i < 0) return fallback;
+  return req.substring(i + strlen(key)).toInt();
+}
+long clampL(long v, long lo, long hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
 void sendStatus(WiFiClient& c) {
-  int motion = (state != WARMUP && digitalRead(PIR_PIN) == HIGH) ? 1 : 0;
+  unsigned long now = millis();
+  int motion = (now - bootTime >= warmupMs && digitalRead(PIR_PIN) == HIGH) ? 1 : 0;
+  long lastMotionS = lastMotionMs ? (long)((now - lastMotionMs) / 1000) : -1;
+  long lastShotS   = lastShotMs   ? (long)((now - lastShotMs)   / 1000) : -1;
+  long cooldownLeft = (state == COOLDOWN) ? clampL((long)((cooldownMs - (now - stateSince)) / 1000), 0, 100000) : 0;
+  long rssi = (WiFi.status() == WL_CONNECTED) ? WiFi.RSSI() : 0;
+
   c.println("HTTP/1.1 200 OK");
   c.println("Content-Type: application/json");
   c.println("Connection: close");
   c.println();
-  c.print("{\"armed\":");   c.print(armed ? "true" : "false");
-  c.print(",\"state\":\""); c.print(stateName());
-  c.print("\",\"motion\":"); c.print(motion);
-  c.print(",\"shots\":");   c.print(shots);
+  c.print("{\"armed\":");          c.print(armed ? "true" : "false");
+  c.print(",\"state\":\"");        c.print(stateName());
+  c.print("\",\"motion\":");       c.print(motion);
+  c.print(",\"shots_total\":");    c.print(shotsTotal);
+  c.print(",\"motion_events\":");  c.print(motionEvents);
+  c.print(",\"last_motion_s\":");  c.print(lastMotionS);
+  c.print(",\"last_shot_s\":");    c.print(lastShotS);
+  c.print(",\"cooldown_left_s\":");c.print(cooldownLeft);
+  c.print(",\"uptime_s\":");       c.print(now / 1000);
+  c.print(",\"rssi\":");           c.print(rssi);
+  c.print(",\"pulse_ms\":");       c.print(pulseMs);
+  c.print(",\"cooldown_ms\":");    c.print(cooldownMs);
+  c.print(",\"hold_ms\":");        c.print(motionHoldMs);
+  c.print(",\"warmup_ms\":");      c.print(warmupMs);
   c.println("}");
 }
 
 void handleClient() {
   WiFiClient client = server.available();
   if (!client) return;
-  String req = client.readStringUntil('\n');     // e.g. "GET /arm HTTP/1.1"
-  while (client.available()) client.read();        // drain the rest
+  String req = client.readStringUntil('\n');     // "GET /path?query HTTP/1.1"
+  while (client.available()) client.read();
+
   if (req.indexOf("/disarm") >= 0)      setArmed(false);
   else if (req.indexOf("/arm") >= 0)    setArmed(true);
+  else if (req.indexOf("/test") >= 0) {           // manual one-shot, even when disarmed
+    digitalWrite(PUMP_PIN, HIGH);
+    testPulseUntil = millis() + pulseMs;
+    lastShotMs = millis();
+    Serial.println(">>> TEST pulse");
+  }
+  else if (req.indexOf("/reset") >= 0) {          // reset telemetry counters
+    shotsTotal = 0; motionEvents = 0; shotsSinceArm = 0;
+    Serial.println(">>> counters reset");
+  }
+  else if (req.indexOf("/set") >= 0) {            // live-tune timings (ms)
+    pulseMs      = clampL(paramInt(req, "pulse=",    pulseMs),      50, 5000);
+    cooldownMs   = clampL(paramInt(req, "cooldown=", cooldownMs),   0,  600000);
+    motionHoldMs = clampL(paramInt(req, "hold=",     motionHoldMs), 0,  10000);
+    warmupMs     = clampL(paramInt(req, "warmup=",   warmupMs),     0,  120000);
+    Serial.print(">>> set pulse="); Serial.print(pulseMs);
+    Serial.print(" cooldown="); Serial.print(cooldownMs);
+    Serial.print(" hold="); Serial.print(motionHoldMs);
+    Serial.print(" warmup="); Serial.println(warmupMs);
+  }
+
   sendStatus(client);
   delay(2);
   client.stop();
@@ -140,36 +188,49 @@ void loop() {
   unsigned long now = millis();
   handleSerial();
 
-  // WiFi upkeep — never while ACTIVE, so a reconnect stall can't extend a water pulse
+  // --- manual test pulse: overrides everything, brief, independent of armed ---
+  if (testPulseUntil) {
+    digitalWrite(PUMP_PIN, HIGH);
+    digitalWrite(LED_PIN, (now / 80) % 2);        // fast flicker = test firing
+    if (now >= testPulseUntil) {
+      digitalWrite(PUMP_PIN, LOW);
+      testPulseUntil = 0;
+      Serial.println("--- test pulse done");
+    }
+    return;
+  }
+
+  // --- WiFi upkeep + HTTP (never while firing, so it can't extend a pulse) ---
   if (state != ACTIVE && WiFi.status() != WL_CONNECTED && now - lastWifiTry > WIFI_RETRY_MS) {
     wifiConnect();
     now = millis();
   }
-  // Serve HTTP only when not firing (readStringUntil could stall up to ~1s)
   if (state != ACTIVE && serverUp && WiFi.status() == WL_CONNECTED) handleClient();
 
-  // DISARMED: nothing fires, LED breathes slowly
+  // --- motion sensing + telemetry: runs even when DISARMED (for calibration in HA) ---
+  bool warm = (now - bootTime >= warmupMs);
+  bool motion = warm && (digitalRead(PIR_PIN) == HIGH);
+  if (motion && !prevMotion) { motionEvents++; lastMotionMs = now; }
+  prevMotion = motion;
+
+  // --- DISARMED: never fire; LED breathes slowly ---
   if (!armed) {
     digitalWrite(PUMP_PIN, LOW);
     digitalWrite(LED_PIN, (now / 1000) % 2);
+    if (state != IDLE) state = IDLE;
     return;
   }
 
-  // PIR warm-up
-  if (state == WARMUP) {
-    digitalWrite(LED_PIN, (now / 300) % 2);
-    if (now - bootTime >= WARMUP_MS) { state = IDLE; stateSince = now; Serial.println("warmed up, watching"); }
-    return;
-  }
-
-  bool motion = digitalRead(PIR_PIN) == HIGH;
+  // --- ARMED ---
+  if (!warm) { state = WARMUP; digitalWrite(LED_PIN, (now / 300) % 2); return; }
+  if (state == WARMUP) { state = IDLE; stateSince = now; Serial.println("warmed up, watching"); }
 
   switch (state) {
     case IDLE:
       digitalWrite(LED_PIN, motion ? HIGH : LOW);
       if (motion) {
         if (motionStart == 0) motionStart = now;
-        if (now - motionStart >= MOTION_HOLD_MS) fire();
+        if (now - motionStart >= motionHoldMs) fire();
       } else {
         motionStart = 0;
       }
@@ -177,7 +238,7 @@ void loop() {
 
     case ACTIVE:
       digitalWrite(LED_PIN, HIGH);
-      if (now - stateSince >= PULSE_MS) {
+      if (now - stateSince >= pulseMs) {
         digitalWrite(PUMP_PIN, LOW);
         state = COOLDOWN; stateSince = now;
         Serial.println("--- pulse done, cooldown");
@@ -186,8 +247,8 @@ void loop() {
 
     case COOLDOWN:
       digitalWrite(LED_PIN, LOW);
-      if (now - stateSince >= COOLDOWN_MS) {
-        if (shots >= MAX_SHOTS) {
+      if (now - stateSince >= cooldownMs) {
+        if (shotsSinceArm >= MAX_SHOTS) {
           Serial.println(">>> shot limit reached — disarming for safety");
           setArmed(false);
         } else {

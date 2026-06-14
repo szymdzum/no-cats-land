@@ -54,13 +54,17 @@ Home Assistant only arms/disarms and monitors, via HTTP:
 
 | Endpoint | Action |
 |---|---|
-| `GET /status` | JSON `{"armed":bool,"state":"...","motion":0\|1,"shots":n}` |
-| `GET /arm`    | arm, returns status |
-| `GET /disarm` | disarm, returns status |
+| `GET /status` | telemetry JSON (armed, state, motion, shots, events, last_motion_s, cooldown_left_s, uptime_s, rssi, and the live timings) |
+| `GET /arm` / `/disarm` | arm / disarm |
+| `GET /test` | fire one manual test pulse (works even when disarmed) |
+| `GET /reset` | reset the telemetry counters |
+| `GET /set?pulse=&cooldown=&hold=&warmup=` | live-tune timings in ms (no reflash) |
 
-The board starts **disarmed**. Give it a fixed address (DHCP reservation on the router),
-then wire it into HA with a `rest_command` (arm/disarm), a `rest` sensor (poll `/status`)
-and a template `switch`. See `docs/home-assistant.yaml` for a ready-to-paste config.
+The board starts **disarmed**. Motion sensing + telemetry run even while disarmed (so you can
+calibrate from HA); the pump only fires when armed. Give the board a fixed address (DHCP
+reservation on the router), then paste `docs/home-assistant.yaml` — it provides an arm
+**switch**, **motion** binary_sensor, telemetry **sensors**, **test fire / reset** buttons,
+live-tuning **sliders** (pulse/cooldown/hold), and ready Mushroom dashboard cards.
 
 ## PIR calibration
 
