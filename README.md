@@ -85,5 +85,7 @@ Mushroom dashboard is in [`docs/dashboard-no-cats-land.yaml`](docs/dashboard-no-
 ## Status
 
 - ✅ sensor wired, verified, roughly calibrated; reports over WiFi
-- ✅ firmware: local state machine (warm-up → idle → pulse → cooldown) + REST arm/disarm/status
-- ⏳ buy pump/MOSFET/diode/PSU; wire the pump; add to Home Assistant; final mounting
+- ✅ firmware + REST + Home Assistant (control, telemetry, notifications, dashboard) — all working
+- ⏳ buy pump/MOSFET/diode/PSU + tube; wire the pump; final mounting
+
+**📋 Resume checklist + shopping list:** [`docs/NEXT-STEPS.md`](docs/NEXT-STEPS.md) — start here when the hardware arrives.
