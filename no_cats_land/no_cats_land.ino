@@ -21,7 +21,7 @@
 
 // Persisted armed state — survives reboots / power blips (SAMD has no real EEPROM).
 // magic byte guards against reading uninitialized flash (0xFF) as "armed".
-typedef struct { uint8_t magic; bool armed; } Persist;
+typedef struct { uint8_t magic; bool armed; long shotsTotal; } Persist;
 const uint8_t PERSIST_MAGIC = 0xA5;
 FlashStorage(armedFlash, Persist);
 
@@ -63,10 +63,15 @@ const char* stateName() {
   return "?";
 }
 
+void persistSave() {
+  Persist p; p.magic = PERSIST_MAGIC; p.armed = armed; p.shotsTotal = shotsTotal;
+  armedFlash.write(p);
+}
+
 void setArmed(bool a) {
   if (a == armed) return;
   armed = a;
-  { Persist p; p.magic = PERSIST_MAGIC; p.armed = armed; armedFlash.write(p); }  // remember across reboots
+  persistSave();                    // remember armed + shot count across reboots
   digitalWrite(PUMP_PIN, LOW);
   motionStart = 0;
   stateSince = millis();
@@ -86,6 +91,7 @@ void fire() {
   stateSince = millis();
   lastShotMs = stateSince;
   shotsTotal++; shotsSinceArm++;
+  persistSave();                    // keep the shot count across reboots
   Serial.print(">>> SHOT #"); Serial.println(shotsSinceArm);
 }
 
@@ -163,6 +169,7 @@ void handleClient() {
   }
   else if (req.indexOf("/reset") >= 0) {          // reset telemetry counters
     shotsTotal = 0; motionEvents = 0; shotsSinceArm = 0;
+    persistSave();
     Serial.println(">>> counters reset");
   }
   else if (req.indexOf("/set") >= 0) {            // live-tune timings (ms)
@@ -189,14 +196,15 @@ void setup() {
   Serial.begin(9600);
   bootTime = stateSince = millis();
 
-  // restore armed state from flash (survives reboots / power blips)
+  // restore armed state + shot count from flash (survive reboots / power blips)
   Persist p = armedFlash.read();
   if (p.magic == PERSIST_MAGIC) {
     armed = p.armed;
+    shotsTotal = p.shotsTotal;
     if (armed) state = WARMUP;          // re-arm, but still warm the PIR up first
   } else {
-    Persist init; init.magic = PERSIST_MAGIC; init.armed = false;
-    armedFlash.write(init);             // first boot after flashing -> default disarmed
+    armed = false; shotsTotal = 0;
+    persistSave();                      // first boot after flashing -> clean defaults
   }
   Serial.print("no-cats-land start. ");
   Serial.println(armed ? "ARMED (restored from flash)" : "DISARMED");
@@ -257,7 +265,7 @@ void loop() {
       break;
 
     case ACTIVE:
-      digitalWrite(LED_PIN, HIGH);
+      digitalWrite(LED_PIN, (now / 60) % 2);    // fast flicker = SHOT firing (clearly different from steady motion)
       if (now - stateSince >= pulseMs) {
         digitalWrite(PUMP_PIN, LOW);
         state = COOLDOWN; stateSince = now;
