@@ -1,5 +1,7 @@
 # no-cats-land 🐱🚱
 
+![no-cats-land — smart DIY system to keep mischief out](docs/banner.png)
+
 > *"The best-fortified line of defense is useless if the enemy simply walks around it."*
 > — the spirit of the Maginot Line, patron of this project
 
