@@ -16,7 +16,14 @@
 // short pulse + cooldown (anti-flood); MAX_SHOTS auto-disarm; INPUT_PULLDOWN on D2.
 
 #include <WiFiNINA.h>
+#include <FlashStorage.h>
 #include "arduino_secrets.h"
+
+// Persisted armed state — survives reboots / power blips (SAMD has no real EEPROM).
+// magic byte guards against reading uninitialized flash (0xFF) as "armed".
+typedef struct { uint8_t magic; bool armed; } Persist;
+const uint8_t PERSIST_MAGIC = 0xA5;
+FlashStorage(armedFlash, Persist);
 
 // ---- Pins ----
 const int PIR_PIN  = 2;
@@ -59,6 +66,7 @@ const char* stateName() {
 void setArmed(bool a) {
   if (a == armed) return;
   armed = a;
+  { Persist p; p.magic = PERSIST_MAGIC; p.armed = armed; armedFlash.write(p); }  // remember across reboots
   digitalWrite(PUMP_PIN, LOW);
   motionStart = 0;
   stateSince = millis();
@@ -180,7 +188,19 @@ void setup() {
   pinMode(LED_PIN, OUTPUT);
   Serial.begin(9600);
   bootTime = stateSince = millis();
-  Serial.println("no-cats-land start. DISARMED.");
+
+  // restore armed state from flash (survives reboots / power blips)
+  Persist p = armedFlash.read();
+  if (p.magic == PERSIST_MAGIC) {
+    armed = p.armed;
+    if (armed) state = WARMUP;          // re-arm, but still warm the PIR up first
+  } else {
+    Persist init; init.magic = PERSIST_MAGIC; init.armed = false;
+    armedFlash.write(init);             // first boot after flashing -> default disarmed
+  }
+  Serial.print("no-cats-land start. ");
+  Serial.println(armed ? "ARMED (restored from flash)" : "DISARMED");
+
   wifiConnect();
 }
 
