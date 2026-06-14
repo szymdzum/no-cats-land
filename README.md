@@ -62,6 +62,8 @@ Home Assistant only arms/disarms and monitors, via HTTP:
 | `GET /reset` | reset the telemetry counters |
 | `GET /set?pulse=&cooldown=&hold=&warmup=` | live-tune timings in ms (no reflash) |
 
+Full HTTP API reference (params, status fields, examples): [`docs/api.md`](docs/api.md).
+
 The board starts **disarmed**. Motion sensing + telemetry run even while disarmed (so you can
 calibrate from HA); the pump only fires when armed. Give the board a fixed address (DHCP
 reservation on the router), then paste `docs/home-assistant.yaml` — it provides an arm
