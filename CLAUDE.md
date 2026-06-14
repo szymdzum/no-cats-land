@@ -156,8 +156,11 @@ H/L jumper setting (L is more convenient for the cooldown logic).
 
 Safety/robustness patterns already in `no_cats_land/no_cats_land.ino` (phase 2 draft):
 - **motion debounce (`MOTION_HOLD_MS`)** — fire only after motion persists (rejects glitches)
-- **starts DISARMED + manual arming** (Serial: 'a'/'d') — the pump never fires on power-up
-- **`MAX_SHOTS` auto-disarm** — safety cap against a runaway burst
+- **starts DISARMED + manual arming** (Serial 'a'/'d', or HTTP) — never fires on power-up;
+  the armed state + `shots_total` are **persisted to flash** (FlashStorage) and restored after
+  a reboot/power blip, so a brownout no longer silently disarms it
+- **tunable `maxShots` auto-disarm** (via `/set?maxshots=`, `0` = off) — runaway-burst guard;
+  sets `limit_hit` in `/status` so HA can notify why it disarmed
 - **short pulse + cooldown** — keep the water shot ~0.5s; never run the actuator for seconds
   (that would flood the alcove)
 - **`INPUT_PULLDOWN` on D2** — a loose OUT wire won't float
@@ -170,7 +173,8 @@ Safety/robustness patterns already in `no_cats_land/no_cats_land.ino` (phase 2 d
 - [x] wiring diagram PIR + Nano + MOSFET + pump + diode
 - [ ] buy: pump, D4184 module, diode, 12V PSU, tubing
 - [x] firmware: local state machine (warm-up → idle → pulse → cooldown), MAX_SHOTS
-- [x] WiFi + REST control & telemetry (`/status`, `/arm`, `/disarm`, `/test`, `/reset`, `/set`); full Home Assistant config (switch, sensors, buttons, tuning sliders, Mushroom cards) in `docs/home-assistant.yaml`
+- [x] WiFi + REST control & telemetry (`/status`, `/arm`, `/disarm`, `/test`, `/reset`, `/set`); full Home Assistant config (switch, sensors, buttons, tuning sliders) in `docs/home-assistant.yaml` + dashboard in `docs/dashboard-no-cats-land.yaml`
+- [x] armed-state + shot-count persistence (flash); tunable shot cap; HA notifications on shot and on safety auto-disarm
 - [ ] buy + wire the pump (MOSFET, diode, 12V PSU), test the pulse dry then with water
 - [ ] DHCP reservation for the board so HA always finds it
 - [ ] final mounting

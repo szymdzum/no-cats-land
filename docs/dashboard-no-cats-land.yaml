@@ -1,0 +1,104 @@
+# no-cats-land — Home Assistant dashboard view (Mushroom).
+# Add this entry under `views:` in a YAML-mode Lovelace dashboard.
+# Requires the Mushroom cards (HACS).
+
+  - title: no-cats-land
+    path: no-cats-land
+    icon: mdi:cat
+    type: sections
+    max_columns: 2
+    sections:
+      # ===================== COLUMN 1 — control + tuning =====================
+      - type: grid
+        cards:
+          - type: heading
+            heading: no-cats-land
+            icon: mdi:cat
+          - type: custom:mushroom-template-card
+            entity: switch.no_cats_land
+            primary: >-
+              {{ 'Uzbrojony' if is_state('binary_sensor.no_cats_land_armed','on') else 'Rozbrojony' }}
+            secondary: >-
+              {{ 'Rozgrzewka' if is_state('sensor.no_cats_land_state','warmup') else 'STRZAŁ!' if is_state('sensor.no_cats_land_state','active') else 'Cooldown' if is_state('sensor.no_cats_land_state','cooldown') else 'Czuwa' if is_state('binary_sensor.no_cats_land_armed','on') else 'Dotknij, aby uzbroić' }}
+            icon: >-
+              {{ 'mdi:water' if is_state('sensor.no_cats_land_state','active') else 'mdi:shield-check' if is_state('binary_sensor.no_cats_land_armed','on') else 'mdi:shield-off-outline' }}
+            icon_color: >-
+              {{ 'red' if is_state('sensor.no_cats_land_state','active') else 'amber' if is_state('binary_sensor.no_cats_land_armed','on') else 'grey' }}
+            layout: vertical
+            fill_container: true
+            tap_action:
+              action: toggle
+          - type: custom:mushroom-chips-card
+            alignment: start
+            chips:
+              - type: template
+                entity: binary_sensor.no_cats_land_motion
+                icon: mdi:motion-sensor
+                icon_color: "{{ 'red' if is_state('binary_sensor.no_cats_land_motion','on') else 'grey' }}"
+                content: "{{ 'Ruch' if is_state('binary_sensor.no_cats_land_motion','on') else 'Spokój' }}"
+              - type: template
+                icon: mdi:water
+                icon_color: blue
+                content: "{{ states('sensor.no_cats_land_shots_total') }} strzałów"
+              - type: template
+                icon: mdi:wifi
+                icon_color: grey
+                content: "{{ states('sensor.no_cats_land_rssi') }} dBm"
+          - type: custom:mushroom-chips-card
+            alignment: start
+            chips:
+              - type: template
+                icon: mdi:water-pump
+                icon_color: blue
+                content: Test fire
+                tap_action:
+                  action: perform-action
+                  perform_action: button.press
+                  target:
+                    entity_id: button.no_cats_land_test_fire
+              - type: template
+                icon: mdi:counter
+                icon_color: grey
+                content: Reset
+                tap_action:
+                  action: perform-action
+                  perform_action: button.press
+                  target:
+                    entity_id: button.no_cats_land_reset_counters
+          - type: heading
+            heading: Strojenie
+            icon: mdi:tune
+          - type: custom:mushroom-number-card
+            entity: number.no_cats_land_pulse
+            display_mode: slider
+            icon_color: blue
+          - type: custom:mushroom-number-card
+            entity: number.no_cats_land_cooldown
+            display_mode: slider
+            icon_color: blue
+          - type: custom:mushroom-number-card
+            entity: number.no_cats_land_hold
+            display_mode: slider
+            icon_color: blue
+          - type: custom:mushroom-number-card
+            entity: number.no_cats_land_max_shots
+            display_mode: slider
+            icon_color: orange
+      # ===================== COLUMN 2 — telemetry =====================
+      - type: grid
+        cards:
+          - type: heading
+            heading: Telemetria
+            icon: mdi:chart-line
+          - type: history-graph
+            title: Ruch (6h)
+            hours_to_show: 6
+            entities:
+              - entity: binary_sensor.no_cats_land_motion
+                name: Ruch
+          - type: logbook
+            title: Dziennik (24h)
+            hours_to_show: 24
+            entities:
+              - switch.no_cats_land
+              - binary_sensor.no_cats_land_motion

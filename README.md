@@ -60,15 +60,21 @@ Home Assistant only arms/disarms and monitors, via HTTP:
 | `GET /arm` / `/disarm` | arm / disarm |
 | `GET /test` | fire one manual test pulse (works even when disarmed) |
 | `GET /reset` | reset the telemetry counters |
-| `GET /set?pulse=&cooldown=&hold=&warmup=` | live-tune timings in ms (no reflash) |
+| `GET /set?pulse=&cooldown=&hold=&warmup=&maxshots=` | live-tune settings (no reflash) |
 
 Full HTTP API reference (params, status fields, examples): [`docs/api.md`](docs/api.md).
 
-The board starts **disarmed**. Motion sensing + telemetry run even while disarmed (so you can
-calibrate from HA); the pump only fires when armed. Give the board a fixed address (DHCP
-reservation on the router), then paste `docs/home-assistant.yaml` — it provides an arm
-**switch**, **motion** binary_sensor, telemetry **sensors**, **test fire / reset** buttons,
-live-tuning **sliders** (pulse/cooldown/hold), and ready Mushroom dashboard cards.
+The board starts disarmed on first flash, then **remembers its armed state and shot count
+across reboots** (flash). Motion sensing + telemetry run even while disarmed (so you can
+calibrate from HA); the pump only fires when armed. A safety cap auto-disarms after
+`max_shots` shots (tunable, `0` = off) and HA pops a notification when that happens — and on
+every shot.
+
+Give the board a fixed address (DHCP reservation on the router), then paste
+[`docs/home-assistant.yaml`](docs/home-assistant.yaml) — it provides an arm **switch**,
+**motion** binary_sensor, telemetry **sensors**, **test fire / reset** buttons, live-tuning
+**sliders** (pulse/cooldown/hold/max-shots) and **shot + auto-disarm notifications**. A ready
+Mushroom dashboard is in [`docs/dashboard-no-cats-land.yaml`](docs/dashboard-no-cats-land.yaml).
 
 ## PIR calibration
 

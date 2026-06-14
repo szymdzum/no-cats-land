@@ -1,14 +1,6 @@
-# no-cats-land — full Home Assistant integration (REST, no broker needed)
-#
-# Paste these blocks into configuration.yaml (or split files), then restart HA.
-# Set the IP to match your board, and give it a DHCP reservation on the router
-# (Nano MAC 78:21:84:ac:12:60) so the address never changes.
-#
-# The board runs detection/telemetry/firing locally; HA arms, monitors and tunes.
+# no-cats-land — Home Assistant package (auto-merged by HA). Managed by Claude.
+# Board at 192.168.1.23 (DHCP-reserved, MAC 78:21:84:ac:12:60).
 
-# ===========================================================================
-# Commands sent TO the board
-# ===========================================================================
 rest_command:
   nocatsland_arm:
     url: "http://192.168.1.23/arm"
@@ -20,14 +12,13 @@ rest_command:
     url: "http://192.168.1.23/reset"
   nocatsland_set_pulse:
     url: "http://192.168.1.23/set?pulse={{ value | int }}"
-  nocatsland_set_cooldown:                 # HA number is in seconds -> ms
+  nocatsland_set_cooldown:
     url: "http://192.168.1.23/set?cooldown={{ (value | int) * 1000 }}"
   nocatsland_set_hold:
     url: "http://192.168.1.23/set?hold={{ value | int }}"
+  nocatsland_set_maxshots:
+    url: "http://192.168.1.23/set?maxshots={{ value | int }}"
 
-# ===========================================================================
-# Telemetry polled FROM the board (/status)
-# ===========================================================================
 rest:
   - resource: "http://192.168.1.23/status"
     scan_interval: 5
@@ -59,7 +50,6 @@ rest:
         unit_of_measurement: "dBm"
         device_class: signal_strength
         state_class: measurement
-      # config echo — feeds the tuning sliders below
       - name: "no-cats-land pulse ms"
         value_template: "{{ value_json.pulse_ms }}"
         unit_of_measurement: "ms"
@@ -69,6 +59,8 @@ rest:
       - name: "no-cats-land hold ms"
         value_template: "{{ value_json.hold_ms }}"
         unit_of_measurement: "ms"
+      - name: "no-cats-land max shots"
+        value_template: "{{ value_json.max_shots }}"
     binary_sensor:
       - name: "no-cats-land motion"
         device_class: motion
@@ -76,10 +68,10 @@ rest:
       - name: "no-cats-land armed"
         value_template: "{{ value_json.armed }}"
         icon: mdi:shield
+      - name: "no-cats-land limit hit"
+        value_template: "{{ value_json.limit_hit == 1 }}"
+        icon: mdi:alert-octagon
 
-# ===========================================================================
-# The arm/disarm switch (reflects the real state polled above)
-# ===========================================================================
 switch:
   - platform: template
     switches:
@@ -87,23 +79,30 @@ switch:
         friendly_name: "no-cats-land armed"
         value_template: "{{ is_state('binary_sensor.no_cats_land_armed', 'on') }}"
         turn_on:
-          action: rest_command.nocatsland_arm
+          service: rest_command.nocatsland_arm
         turn_off:
-          action: rest_command.nocatsland_disarm
+          service: rest_command.nocatsland_disarm
 
-# ===========================================================================
-# Buttons (test fire, reset counters) + live-tuning sliders
-# ===========================================================================
 template:
+  - sensor:
+      # one human-readable status line for the dashboard
+      - name: "no-cats-land status"
+        icon: mdi:cat
+        state: >-
+          {% if is_state('binary_sensor.no_cats_land_armed','off') %}Rozbrojony
+          {% elif is_state('sensor.no_cats_land_state','warmup') %}Rozgrzewka
+          {% elif is_state('sensor.no_cats_land_state','active') %}STRZAL
+          {% elif is_state('sensor.no_cats_land_state','cooldown') %}Cooldown
+          {% else %}Czuwa{% endif %}
   - button:
       - name: "no-cats-land test fire"
         icon: mdi:water-pump
         press:
-          - action: rest_command.nocatsland_test
+          - service: rest_command.nocatsland_test
       - name: "no-cats-land reset counters"
         icon: mdi:counter
         press:
-          - action: rest_command.nocatsland_reset
+          - service: rest_command.nocatsland_reset
   - number:
       - name: "no-cats-land pulse"
         unit_of_measurement: "ms"
@@ -112,7 +111,7 @@ template:
         step: 50
         state: "{{ states('sensor.no_cats_land_pulse_ms') | int(500) }}"
         set_value:
-          - action: rest_command.nocatsland_set_pulse
+          - service: rest_command.nocatsland_set_pulse
             data:
               value: "{{ value }}"
       - name: "no-cats-land cooldown"
@@ -122,7 +121,7 @@ template:
         step: 5
         state: "{{ (states('sensor.no_cats_land_cooldown_ms') | int(15000)) / 1000 }}"
         set_value:
-          - action: rest_command.nocatsland_set_cooldown
+          - service: rest_command.nocatsland_set_cooldown
             data:
               value: "{{ value }}"
       - name: "no-cats-land hold"
@@ -132,75 +131,45 @@ template:
         step: 50
         state: "{{ states('sensor.no_cats_land_hold_ms') | int(600) }}"
         set_value:
-          - action: rest_command.nocatsland_set_hold
+          - service: rest_command.nocatsland_set_hold
+            data:
+              value: "{{ value }}"
+      - name: "no-cats-land max shots"
+        min: 0
+        max: 100
+        step: 5
+        state: "{{ states('sensor.no_cats_land_max_shots') | int(20) }}"
+        set_value:
+          - service: rest_command.nocatsland_set_maxshots
             data:
               value: "{{ value }}"
 
-# ===========================================================================
-# Optional: notify when the cat is detected while armed
-# ===========================================================================
-# automation:
-#   - alias: "no-cats-land: cat detected"
-#     trigger:
-#       - platform: state
-#         entity_id: binary_sensor.no_cats_land_motion
-#         to: "on"
-#     condition:
-#       - condition: state
-#         entity_id: switch.no_cats_land
-#         state: "on"
-#     action:
-#       - service: notify.notify
-#         data:
-#           message: "no-cats-land: motion detected 🐱"
-
-
-# ===========================================================================
-# DASHBOARD — Mushroom cards (needs Mushroom from HACS). Add to a dashboard view.
-# ===========================================================================
-# type: vertical-stack
-# cards:
-#   - type: custom:mushroom-template-card
-#     entity: switch.no_cats_land
-#     primary: no-cats-land
-#     secondary: >-
-#       {{ states('sensor.no_cats_land_state') }}{{ ' · 🐱' if
-#       is_state('binary_sensor.no_cats_land_motion','on') else '' }}
-#     icon: >-
-#       {{ 'mdi:shield-check' if is_state('switch.no_cats_land','on')
-#       else 'mdi:shield-off-outline' }}
-#     icon_color: "{{ 'green' if is_state('switch.no_cats_land','on') else 'grey' }}"
-#     tap_action:
-#       action: toggle
-#   - type: custom:mushroom-chips-card
-#     chips:
-#       - type: entity
-#         entity: binary_sensor.no_cats_land_motion
-#       - type: entity
-#         entity: sensor.no_cats_land_shots_total
-#       - type: entity
-#         entity: sensor.no_cats_land_rssi
-#   - type: horizontal-stack
-#     cards:
-#       - type: custom:mushroom-template-card
-#         primary: Test fire
-#         icon: mdi:water-pump
-#         tap_action:
-#           action: perform-action
-#           perform_action: button.press
-#           target:
-#             entity_id: button.no_cats_land_test_fire
-#       - type: custom:mushroom-template-card
-#         primary: Reset
-#         icon: mdi:counter
-#         tap_action:
-#           action: perform-action
-#           perform_action: button.press
-#           target:
-#             entity_id: button.no_cats_land_reset_counters
-#   - type: custom:mushroom-number-card
-#     entity: number.no_cats_land_pulse
-#   - type: custom:mushroom-number-card
-#     entity: number.no_cats_land_cooldown
-#   - type: custom:mushroom-number-card
-#     entity: number.no_cats_land_hold
+# Clean shot notification: fires when the shot counter goes UP (reliable even though
+# the 0.5s "active" state is too short for the 5s poll to catch).
+automation:
+  - alias: "no-cats-land: shot fired"
+    id: nocatsland_shot_fired
+    trigger:
+      - platform: state
+        entity_id: sensor.no_cats_land_shots_total
+    condition:
+      - condition: template
+        value_template: >-
+          {{ trigger.from_state.state not in ['unknown','unavailable','']
+             and trigger.to_state.state | int(0) > trigger.from_state.state | int(0) }}
+    action:
+      - service: persistent_notification.create
+        data:
+          title: "no-cats-land 💦"
+          message: "Strzal #{{ states('sensor.no_cats_land_shots_total') }} — kot przegoniony 🐱"
+  - alias: "no-cats-land: safety auto-disarm"
+    id: nocatsland_limit_hit
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.no_cats_land_limit_hit
+        to: "on"
+    action:
+      - service: persistent_notification.create
+        data:
+          title: "no-cats-land 🛡️"
+          message: "Rozbrojono — osiagnieto limit {{ states('sensor.no_cats_land_max_shots') }} strzalow."

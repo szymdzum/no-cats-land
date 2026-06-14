@@ -26,16 +26,16 @@ All endpoints respond with the same status JSON, so a control call also returns 
 
 ### `GET /set` — query parameters
 
-Change timings at runtime (no reflash). Values are **milliseconds**, clamped to the ranges
-below. Any subset of params may be sent. **Stored in RAM — reset to firmware defaults on
-reboot.**
+Change settings at runtime (no reflash). Any subset of params may be sent. **Stored in RAM —
+reset to firmware defaults on reboot.**
 
-| Param | Meaning | Range (ms) | Default |
+| Param | Meaning | Range | Default |
 |---|---|---|---|
-| `pulse` | pump pulse length | 50 – 5000 | 500 |
-| `cooldown` | pause after a shot | 0 – 600000 | 15000 |
-| `hold` | motion-debounce before firing | 0 – 10000 | 600 |
-| `warmup` | PIR warm-up after boot | 0 – 120000 | 60000 |
+| `pulse` | pump pulse length (ms) | 50 – 5000 | 500 |
+| `cooldown` | pause after a shot (ms) | 0 – 600000 | 15000 |
+| `hold` | motion-debounce before firing (ms) | 0 – 10000 | 600 |
+| `warmup` | PIR warm-up after boot (ms) | 0 – 120000 | 60000 |
+| `maxshots` | safety auto-disarm after N shots/arming (0 = off) | 0 – 1000 | 20 |
 
 Example: `GET /set?pulse=700&cooldown=20000`
 
@@ -56,7 +56,9 @@ Example: `GET /set?pulse=700&cooldown=20000`
   "pulse_ms": 500,
   "cooldown_ms": 15000,
   "hold_ms": 600,
-  "warmup_ms": 60000
+  "warmup_ms": 60000,
+  "max_shots": 20,
+  "limit_hit": 0
 }
 ```
 
@@ -76,14 +78,20 @@ Example: `GET /set?pulse=700&cooldown=20000`
 | `cooldown_ms` | int | Current cooldown length |
 | `hold_ms` | int | Current motion-debounce |
 | `warmup_ms` | int | Current warm-up length |
+| `max_shots` | int | Safety cap: auto-disarm after N shots/arming (`0` = off) |
+| `limit_hit` | 0/1 | `1` after the safety cap auto-disarmed (cleared on next arm) |
 
 ## Behaviour notes
 
-- **Starts DISARMED.** Motion sensing + telemetry still run while disarmed (so the sensor can
-  be calibrated remotely); only firing requires `armed = true`.
+- **Starts disarmed on first flash**, then **restores the last armed state from flash** after a
+  reboot/power blip. Motion sensing + telemetry run even while disarmed (so the sensor can be
+  calibrated remotely); only firing requires `armed = true`.
+- **Persistence:** `armed` and `shots_total` are saved to flash and survive reboots. The tunable
+  `/set` values reset to firmware defaults on reboot.
 - **Debounce:** a shot fires only after motion persists for `hold_ms`.
 - **Anti-flood:** after a shot the device enters `cooldown` for `cooldown_ms` and ignores motion.
-- **Safety cap:** after `MAX_SHOTS` (20) shots within one arming, the device auto-disarms.
+- **Safety cap:** after `max_shots` shots within one arming, the device auto-disarms and sets
+  `limit_hit=1` (tune via `/set?maxshots=`; `0` disables).
 - The HTTP server is not served during an active pulse, so a slow request can never extend a
   water shot.
 
