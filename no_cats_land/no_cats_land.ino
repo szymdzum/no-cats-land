@@ -36,8 +36,8 @@ unsigned long motionHoldMs = 600;
 unsigned long pulseMs      = 500;
 unsigned long cooldownMs   = 15000;
 
-// ---- Fixed safety cap ----
-const int MAX_SHOTS = 20;            // auto-disarm after this many shots per arming
+// ---- Safety cap (tunable via /set?maxshots=; 0 = disabled) ----
+int maxShots = 20;                   // auto-disarm after this many shots per arming
 const unsigned long WIFI_RETRY_MS = 30000;
 
 // ---- State ----
@@ -49,6 +49,7 @@ unsigned long lastMotionMs = 0, lastShotMs = 0, testPulseUntil = 0;
 bool  prevMotion = false;
 long  shotsTotal = 0, motionEvents = 0;
 int   shotsSinceArm = 0;
+bool  limitHit = false;              // true after the safety cap auto-disarmed
 
 WiFiServer server(80);
 bool serverUp = false;
@@ -77,6 +78,7 @@ void setArmed(bool a) {
   stateSince = millis();
   if (armed) {
     shotsSinceArm = 0;
+    limitHit = false;
     state = (millis() - bootTime < warmupMs) ? WARMUP : IDLE;
     Serial.println(">>> ARMED");
   } else {
@@ -150,6 +152,8 @@ void sendStatus(WiFiClient& c) {
   c.print(",\"cooldown_ms\":");    c.print(cooldownMs);
   c.print(",\"hold_ms\":");        c.print(motionHoldMs);
   c.print(",\"warmup_ms\":");      c.print(warmupMs);
+  c.print(",\"max_shots\":");      c.print(maxShots);
+  c.print(",\"limit_hit\":");      c.print(limitHit ? 1 : 0);
   c.println("}");
 }
 
@@ -177,6 +181,7 @@ void handleClient() {
     cooldownMs   = clampL(paramInt(req, "cooldown=", cooldownMs),   0,  600000);
     motionHoldMs = clampL(paramInt(req, "hold=",     motionHoldMs), 0,  10000);
     warmupMs     = clampL(paramInt(req, "warmup=",   warmupMs),     0,  120000);
+    maxShots     = clampL(paramInt(req, "maxshots=", maxShots),     0,  1000);
     Serial.print(">>> set pulse="); Serial.print(pulseMs);
     Serial.print(" cooldown="); Serial.print(cooldownMs);
     Serial.print(" hold="); Serial.print(motionHoldMs);
@@ -276,7 +281,8 @@ void loop() {
     case COOLDOWN:
       digitalWrite(LED_PIN, LOW);
       if (now - stateSince >= cooldownMs) {
-        if (shotsSinceArm >= MAX_SHOTS) {
+        if (maxShots > 0 && shotsSinceArm >= maxShots) {
+          limitHit = true;
           Serial.println(">>> shot limit reached — disarming for safety");
           setArmed(false);
         } else {
