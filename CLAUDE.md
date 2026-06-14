@@ -152,21 +152,16 @@ H/L jumper setting (L is more convenient for the cooldown logic).
   and `arduino-cli upload -p <port> --fqbn arduino:samd:nano_33_iot ./<folder>`.
 - Language: chat may be in Polish, but code, comments, docs and commit messages are English.
 
-## Prior art / inspiration
+## Design notes
 
-Similar GitHub projects (checked) — all ultrasonic, all on ESP, nobody in the exact combo
-Nano 33 IoT + water pump + WiFi:
-- `asafdabush/POOPCAT` — ESP8266 + ultrasound + Blynk. Closest in architecture:
-  LISTEN/ACTIVE/COOLDOWN state machine, `secrets_template.h` + gitignore. Borrowed from it:
-  **motion debounce (`MOTION_HOLD_MS`), starts DISARMED + manual arming, log-on-change-only.**
-- `LieBtrau/cat-repeller` — PIR + ultrasound + Web Bluetooth, ESP32-C3, deep-sleep (battery).
-
-What NOT to copy: their deterrent runs ~12s — for a water pump that's a flood (ours pulses
-~0.5s). No PIR warm-up in theirs (they use radar) — we use HC-SR501, so the warm-up stays.
-
-These patterns are already in `no_cats_land/no_cats_land.ino` (phase 2 draft): `MOTION_HOLD_MS`,
-starts disarmed (Serial: 'a'/'d'), `MAX_SHOTS` (auto-disarm), pulse + cooldown,
-`INPUT_PULLDOWN` on D2.
+Safety/robustness patterns already in `no_cats_land/no_cats_land.ino` (phase 2 draft):
+- **motion debounce (`MOTION_HOLD_MS`)** — fire only after motion persists (rejects glitches)
+- **starts DISARMED + manual arming** (Serial: 'a'/'d') — the pump never fires on power-up
+- **`MAX_SHOTS` auto-disarm** — safety cap against a runaway burst
+- **short pulse + cooldown** — keep the water shot ~0.5s; never run the actuator for seconds
+  (that would flood the alcove)
+- **`INPUT_PULLDOWN` on D2** — a loose OUT wire won't float
+- **PIR warm-up stays** — HC-SR501 needs ~60s before readings are trustworthy
 
 ## Status
 

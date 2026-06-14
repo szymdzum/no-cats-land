@@ -2,7 +2,7 @@
 // Arduino Nano 33 IoT (SAMD21).  PIR OUT -> D2,  MOSFET SIG -> D3.
 // NOTE: Nano 33 IoT is 3.3V, pins are NOT 5V tolerant. PIR OUT is 3.3V (safe).
 //
-// Improvements based on prior art (asafdabush/POOPCAT) + lessons from our session:
+// Safety/robustness design choices:
 //  - Starts DISARMED — the pump won't fire on its own when power is applied
 //    (water is less forgiving). Arm/disarm over Serial: 'a' = arm, 'd' = disarm.
 //  - MOTION_HOLD_MS — motion must persist before we fire (rejects PIR glitches).
